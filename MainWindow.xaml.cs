@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -14,10 +16,9 @@ namespace Q3TTS.Native
         private TTSEngine _ttsEngine;
         private AudioEngine _audioEngine;
         private WhisperVerifier _whisperVerifier;
-
+        private bool _isPlaying = false;
         private float[]? _lastGeneratedAudio;
         private string _lastInputText = "";
-        private bool _isPlaying = false;
 
         public MainWindow()
         {
@@ -28,44 +29,45 @@ namespace Q3TTS.Native
             _whisperVerifier = new WhisperVerifier(baseDir);
 
             _audioEngine.PlaybackStopped += OnPlaybackStopped;
-
             Loaded += MainWindow_Loaded;
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            UpdateCharCount();
-            LoadDefaultSampleText();
-            await InitializeEngineAsync();
-        }
-
-        private async Task InitializeEngineAsync()
-        {
-            SetStatus("Initializing Qwen3-TTS Engine...", 20);
+            SetStatus("Initializing Q3-TTS Engine...", 10);
             try
             {
-                Qwen3ModelSize size = ModelCombo.SelectedIndex == 0 ? Qwen3ModelSize.Size1_7B : Qwen3ModelSize.Size0_6B;
-                await _ttsEngine.LoadModelAsync(size, (msg, prog) =>
+                await _ttsEngine.LoadModelAsync(Qwen3ModelSize.Size1_7B, (msg, prog) =>
                 {
                     Dispatcher.Invoke(() => SetStatus(msg, prog));
                 });
-                BackendStatusText.Text = _ttsEngine.ActiveBackend;
+                LoadDefaultVoicePrompt();
+                LoadDefaultSampleText();
             }
             catch (Exception ex)
             {
-                SetStatus($"Engine initialization failed: {ex.Message}", 100);
+                SetStatus($"Engine Init Error: {ex.Message}", 100);
             }
         }
 
-        private void SetStatus(string message, double progress)
+        private void SetStatus(string message, float progress)
         {
             StatusText.Text = message;
-            StatusProgress.Value = progress;
+            StatusProgress.Value = Math.Clamp(progress, 0, 100);
+        }
+
+        private void LoadDefaultVoicePrompt()
+        {
+            string defaultPrompt = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "default_voice_us_female.wav");
+            if (File.Exists(defaultPrompt))
+            {
+                VoicePromptPathText.Text = defaultPrompt;
+            }
         }
 
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ButtonState == MouseButtonState.Pressed)
+            if (e.ChangedButton == MouseButton.Left)
             {
                 DragMove();
             }
@@ -116,7 +118,7 @@ namespace Q3TTS.Native
         {
             OpenFileDialog dlg = new OpenFileDialog
             {
-                Filter = "Audio Files (*.wav;*.mp3;*.flac)|*.wav;*.mp3;*.flac|All Files (*.*)|*.*",
+                Filter = "WAV Audio File (*.wav)|*.wav",
                 Title = "Select Reference Voice Prompt"
             };
 
@@ -293,23 +295,33 @@ namespace Q3TTS.Native
 
         private async void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            string text = InputTextBox.Text.Trim();
-            if (string.IsNullOrEmpty(text))
+            string rawText = InputTextBox.Text.Trim();
+            if (string.IsNullOrEmpty(rawText))
             {
                 MessageBox.Show("Please enter English text to generate WAV.", "Notice", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
+            string[] lines = rawText.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries)
+                                    .Select(l => l.Trim())
+                                    .Where(l => !string.IsNullOrEmpty(l))
+                                    .ToArray();
+
+            if (lines.Length == 0) return;
+
             SaveFileDialog dlg = new SaveFileDialog
             {
                 Filter = "WAV Audio File (*.wav)|*.wav",
-                FileName = $"Q3TTS_Output_{DateTime.Now:yyyyMMdd_HHmmss}.wav",
-                Title = "Save Synthesized Audio WAV File"
+                FileName = lines.Length > 1
+                    ? $"Q3TTS_Batch_{DateTime.Now:yyyyMMdd_HHmmss}.wav"
+                    : $"Q3TTS_Output_{DateTime.Now:yyyyMMdd_HHmmss}.wav",
+                Title = lines.Length > 1
+                    ? $"Save Batch WAV Files ({lines.Length} lines)"
+                    : "Save Synthesized Audio WAV File"
             };
 
             if (dlg.ShowDialog() == true)
             {
-                SetStatus("Generating speech WAV file...", 20);
                 try
                 {
                     SynthesisMode mode = ModeCombo.SelectedIndex == 0 ? SynthesisMode.VoicePrompt : SynthesisMode.VoiceDesign;
@@ -322,23 +334,72 @@ namespace Q3TTS.Native
                     float cfg = (float)CfgWeightSlider.Value;
                     float rep = (float)RepetitionPenaltySlider.Value;
 
-                    float[] audio = await Task.Run(() => _ttsEngine.GenerateSpeechAsync(
-                        text, mode, promptPath, designPrompt, exaggeration, temp, cfg, rep,
-                        (msg, prog) => Dispatcher.Invoke(() => SetStatus(msg, prog))
-                    ));
+                    List<string> savedFiles = new List<string>();
 
-                    if (audio != null && audio.Length > 0)
+                    if (lines.Length == 1)
                     {
-                        _audioEngine.SaveWav(audio, dlg.FileName, speed);
-                        SetStatus($"Saved WAV to {Path.GetFileName(dlg.FileName)}", 100);
+                        SetStatus("Generating speech WAV file...", 20);
+                        float[] audio = await Task.Run(() => _ttsEngine.GenerateSpeechAsync(
+                            lines[0], mode, promptPath, designPrompt, exaggeration, temp, cfg, rep,
+                            (msg, prog) => Dispatcher.Invoke(() => SetStatus(msg, prog))
+                        ));
 
-                        if (DebugSttCheckBox.IsChecked == true)
+                        if (audio != null && audio.Length > 0)
                         {
-                            string norm = EnglishNormalizer.Normalize(text);
-                            await _whisperVerifier.VerifyAndLogAsync(text, norm, audio, dlg.FileName);
-                        }
+                            _audioEngine.SaveWav(audio, dlg.FileName, speed);
+                            savedFiles.Add(dlg.FileName);
 
-                        MessageBox.Show($"WAV file successfully saved:\n{dlg.FileName}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                            if (DebugSttCheckBox.IsChecked == true)
+                            {
+                                string norm = EnglishNormalizer.Normalize(lines[0]);
+                                await _whisperVerifier.VerifyAndLogAsync(lines[0], norm, audio, dlg.FileName);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        string dir = Path.GetDirectoryName(dlg.FileName)!;
+                        string baseName = Path.GetFileNameWithoutExtension(dlg.FileName);
+                        string ext = Path.GetExtension(dlg.FileName);
+
+                        int digits = lines.Length >= 100 ? 3 : 2;
+
+                        for (int i = 0; i < lines.Length; i++)
+                        {
+                            float lineProg = ((float)i / lines.Length) * 100f;
+                            SetStatus($"Generating WAV for line {i + 1} of {lines.Length}...", lineProg);
+
+                            string lineFileName = $"{baseName}_{(i + 1).ToString($"D{digits}")}{ext}";
+                            string lineFilePath = Path.Combine(dir, lineFileName);
+
+                            float[] audio = await Task.Run(() => _ttsEngine.GenerateSpeechAsync(
+                                lines[i], mode, promptPath, designPrompt, exaggeration, temp, cfg, rep,
+                                (msg, prog) => { }
+                            ));
+
+                            if (audio != null && audio.Length > 0)
+                            {
+                                _audioEngine.SaveWav(audio, lineFilePath, speed);
+                                savedFiles.Add(lineFilePath);
+
+                                if (DebugSttCheckBox.IsChecked == true)
+                                {
+                                    string norm = EnglishNormalizer.Normalize(lines[i]);
+                                    await _whisperVerifier.VerifyAndLogAsync(lines[i], norm, audio, lineFilePath);
+                                }
+                            }
+                        }
+                    }
+
+                    if (savedFiles.Count > 0)
+                    {
+                        SetStatus($"Successfully generated {savedFiles.Count} WAV file{(savedFiles.Count == 1 ? "" : "s")}", 100);
+                        string fileList = string.Join("\n", savedFiles.Select(f => Path.GetFileName(f)));
+                        MessageBox.Show($"Generated {savedFiles.Count} WAV file{(savedFiles.Count == 1 ? "" : "s")}:\n\n{fileList}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        SetStatus("Speech synthesis yielded empty audio.", 100);
                     }
                 }
                 catch (Exception ex)
