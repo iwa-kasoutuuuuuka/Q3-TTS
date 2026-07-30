@@ -1,0 +1,20 @@
+# Build & Binary Output Directories
+[Bb]in/
+[Oo]bj/
+Release_Portable_Q3TTS_CUDA/
+
+# Test WAV files & Debug reports
+*.wav
+*.debug.txt
+*.log
+
+# Large ONNX / HuggingFace Model Weights (Downloaded via download_models.ps1 / .py)
+models/
+
+# Visual Studio & IDE user files
+.vs/
+.idea/
+*.user
+*.suo
+*.userosset
+*.DotSettings.user

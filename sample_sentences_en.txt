@@ -1,0 +1,5 @@
+Welcome to Q3-TTS, an advanced text-to-speech application powered by Qwen3-TTS.
+Q3-TTS is specifically designed for fluent American English reading with natural phrasing, accurate pronunciation, and rich voice customization.
+You can adjust speed, pitch stability, exaggeration, and even provide custom voice design prompts in real-time.
+Whether reading technical documentation, news articles, or creative literature, Q3-TTS delivers clear and articulate speech.
+Try typing any English sentence, dragging and dropping a text file, or selecting one of our high-quality American English voice prompts!

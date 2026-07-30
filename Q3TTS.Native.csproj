@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Platforms>AnyCPU;x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <StartupObject>Q3TTS.Native.Program</StartupObject>
+    <AssemblyName>Q3TTS.Native</AssemblyName>
+    
+    <PublishSingleFile>false</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+
+    <DebugType>embedded</DebugType>
+    <ApplicationIcon>assets\icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="assets\icon.png" />
+    <Resource Include="assets\icon.ico" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OnnxBackend Condition="'$(OnnxBackend)' == ''">GPU</OnnxBackend>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(OnnxBackend)' == 'GPU'">
+    <DefineConstants>$(DefineConstants);USE_CUDA</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OnnxBackend)' == 'DirectML'">
+    <DefineConstants>$(DefineConstants);USE_DML</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.20.1" Condition="'$(OnnxBackend)' == 'GPU'" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.20.1" Condition="'$(OnnxBackend)' == 'DirectML'" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Whisper.net" Version="1.7.4" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.7.4" />
+  </ItemGroup>
+
+</Project>
