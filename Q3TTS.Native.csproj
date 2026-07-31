@@ -44,4 +44,16 @@
     <PackageReference Include="Whisper.net.Runtime" Version="1.7.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="qwen3_server.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="user_dict_en.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="sample_sentences_en.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

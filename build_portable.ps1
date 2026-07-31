@@ -13,6 +13,7 @@ Write-Host "Publishing portable WPF Application (win-x64)..." -ForegroundColor Y
 dotnet publish "Q3TTS.Native.csproj" -c Release -r win-x64 --self-contained false -o $PublishDir
 
 Write-Host "Copying assets, user dictionary, and scripts..." -ForegroundColor Yellow
+Copy-Item (Join-Path $PSScriptRoot "qwen3_server.py") $PublishDir -Force
 Copy-Item (Join-Path $PSScriptRoot "user_dict_en.txt") $PublishDir -Force
 Copy-Item (Join-Path $PSScriptRoot "sample_sentences_en.txt") $PublishDir -Force
 Copy-Item (Join-Path $PSScriptRoot "download_models.py") $PublishDir -Force

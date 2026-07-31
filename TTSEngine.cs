@@ -24,13 +24,13 @@ namespace Q3TTS.Native
 
     public class TTSEngine : IDisposable
     {
-        private static readonly object _logLock = new object();
         private readonly string _modelsDir;
         private Qwen3ModelSize _currentModelSize = Qwen3ModelSize.Size1_7B;
-        public string ActiveBackend { get; private set; } = "CUDA (RTX 5080 Accelerated)";
+        public string ActiveBackend { get; private set; } = "Initializing...";
         public bool IsLoaded { get; private set; } = false;
+        public string SelectedSpeaker { get; set; } = "Ryan";
 
-        private readonly HttpClient _httpClient = new HttpClient();
+        private readonly HttpClient _httpClient;
         private Process? _serverProcess;
 
         public TTSEngine(string baseDir)
@@ -40,96 +40,120 @@ namespace Q3TTS.Native
             {
                 Directory.CreateDirectory(_modelsDir);
             }
+
+            // Neural inference can take 10-60+ seconds depending on text length
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
         }
 
         public async Task LoadModelAsync(Qwen3ModelSize size, Action<string, float>? progressCallback = null)
         {
             _currentModelSize = size;
-            string modelName = size == Qwen3ModelSize.Size1_7B ? "Qwen3-TTS 1.7B (CustomVoice)" : "Qwen3-TTS 0.6B (CustomVoice)";
+            string modelName = size == Qwen3ModelSize.Size1_7B ? "Qwen3-TTS 1.7B" : "Qwen3-TTS 0.6B";
             progressCallback?.Invoke($"Loading {modelName}...", 10f);
-
-            await EnsureModelFilesDownloadedAsync(size, progressCallback);
 
             bool ready = await InitializeInferenceBackendAsync(progressCallback);
             if (ready)
             {
                 IsLoaded = true;
-                progressCallback?.Invoke($"{modelName} loaded successfully on {ActiveBackend}.", 100f);
+                progressCallback?.Invoke($"{modelName} loaded on {ActiveBackend}.", 100f);
             }
             else
             {
-                ActiveBackend = "DirectML / ONNX Native";
-                IsLoaded = true;
-                progressCallback?.Invoke($"{modelName} loaded in Standalone ONNX Mode.", 100f);
-            }
-        }
-
-        private async Task EnsureModelFilesDownloadedAsync(Qwen3ModelSize size, Action<string, float>? progressCallback)
-        {
-            string targetSubDir = Path.Combine(_modelsDir, size == Qwen3ModelSize.Size1_7B ? "qwen3-1.7b" : "qwen3-0.6b");
-            if (!Directory.Exists(targetSubDir))
-            {
-                Directory.CreateDirectory(targetSubDir);
-            }
-
-            string usFemalePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "default_voice_us_female.wav");
-            if (!File.Exists(usFemalePath))
-            {
-                GenerateDefaultUSVoicePrompt(usFemalePath);
+                IsLoaded = false;
+                ActiveBackend = "Not Connected";
+                progressCallback?.Invoke($"ERROR: {modelName} server not available. Start qwen3_server.py first.", 100f);
             }
         }
 
         private async Task<bool> InitializeInferenceBackendAsync(Action<string, float>? progressCallback)
         {
-            progressCallback?.Invoke("Connecting to Qwen3-TTS CUDA Neural Server...", 50f);
-
+            // Step 1: Check if server is already running
+            progressCallback?.Invoke("Checking Qwen3-TTS CUDA Neural Server...", 30f);
             if (await CheckServerHealthAsync())
             {
-                ActiveBackend = "CUDA (RTX 5080 Accelerated)";
+                ActiveBackend = "CUDA (Qwen3-TTS Neural)";
                 return true;
             }
 
-            string scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "qwen3_server.py");
-            if (File.Exists(scriptPath))
+            // Step 2: Try to auto-start the server
+            progressCallback?.Invoke("Starting Qwen3-TTS CUDA Neural Server...", 50f);
+            string? scriptPath = FindServerScript();
+            if (scriptPath != null)
             {
-                progressCallback?.Invoke("Starting Qwen3-TTS CUDA Neural Server...", 60f);
                 try
                 {
+                    string sizeArg = _currentModelSize == Qwen3ModelSize.Size1_7B ? "1.7B" : "0.6B";
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = "uv",
-                        Arguments = $"run --with torch,transformers,fastapi,uvicorn,soundfile,pydantic python \"{scriptPath}\" --port 8080 --size {(_currentModelSize == Qwen3ModelSize.Size1_7B ? "1.7B" : "0.6B")}",
-                        WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
+                        Arguments = $"run --with qwen-tts,torch,soundfile,fastapi,uvicorn,pydantic python \"{scriptPath}\" --port 8080 --size {sizeArg}",
+                        WorkingDirectory = Path.GetDirectoryName(scriptPath),
                         UseShellExecute = false,
-                        CreateNoWindow = true
+                        CreateNoWindow = true,
+                        RedirectStandardError = true,
+                        RedirectStandardOutput = true
                     };
                     _serverProcess = Process.Start(startInfo);
 
-                    for (int i = 0; i < 30; i++)
+                    // Wait up to 120 seconds for model to load (large model + CUDA init)
+                    for (int i = 0; i < 240; i++)
                     {
                         await Task.Delay(500);
+                        float prog = 50f + (i / 240f) * 45f;
+                        progressCallback?.Invoke($"Waiting for neural model to load... ({i / 2}s)", prog);
+
                         if (await CheckServerHealthAsync())
                         {
-                            ActiveBackend = "CUDA (RTX 5080 Accelerated)";
+                            ActiveBackend = "CUDA (Qwen3-TTS Neural)";
                             return true;
+                        }
+
+                        // Check if process crashed
+                        if (_serverProcess != null && _serverProcess.HasExited)
+                        {
+                            string stderr = await _serverProcess.StandardError.ReadToEndAsync();
+                            progressCallback?.Invoke($"Server crashed: {stderr.Substring(0, Math.Min(200, stderr.Length))}", 95f);
+                            return false;
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    progressCallback?.Invoke($"Failed to start server: {ex.Message}", 95f);
+                }
             }
 
             return false;
+        }
+
+        private string? FindServerScript()
+        {
+            // Search for qwen3_server.py in multiple locations
+            string[] searchPaths = new[]
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "qwen3_server.py"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "qwen3_server.py"),
+                @"E:\Q3-TTS\qwen3_server.py"
+            };
+
+            foreach (var path in searchPaths)
+            {
+                if (File.Exists(path)) return Path.GetFullPath(path);
+            }
+            return null;
         }
 
         private async Task<bool> CheckServerHealthAsync()
         {
             try
             {
-                var res = await _httpClient.GetAsync("http://127.0.0.1:8080/health");
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(3));
+                var res = await _httpClient.GetAsync("http://127.0.0.1:8080/health", cts.Token);
                 if (res.IsSuccessStatusCode)
                 {
                     string json = await res.Content.ReadAsStringAsync();
-                    return json.Contains("\"status\":\"ok\"") || json.Contains("\"model_loaded\":true");
+                    // Only report healthy if model is actually loaded
+                    return json.Contains("\"model_loaded\":true") || json.Contains("\"model_loaded\": true");
                 }
             }
             catch { }
@@ -152,7 +176,13 @@ namespace Q3TTS.Native
             progressCallback?.Invoke("Normalizing English text...", 10f);
             string normalizedText = EnglishNormalizer.Normalize(text);
 
-            progressCallback?.Invoke("Generating Qwen3-TTS neural speech synthesis on CUDA...", 40f);
+            if (!IsLoaded || !await CheckServerHealthAsync())
+            {
+                progressCallback?.Invoke("ERROR: Neural server not available. Please start qwen3_server.py.", 100f);
+                return Array.Empty<float>();
+            }
+
+            progressCallback?.Invoke("Sending to Qwen3-TTS neural engine...", 30f);
 
             List<string> sentences = SplitTextIntoSentences(normalizedText, maxChars: 350);
             List<float[]> generatedAudioChunks = new List<float[]>();
@@ -161,46 +191,46 @@ namespace Q3TTS.Native
 
             for (int i = 0; i < sentences.Count; i++)
             {
-                float prog = 40f + ((float)i / sentences.Count) * 50f;
-                progressCallback?.Invoke($"Synthesizing sentence {i + 1} of {sentences.Count}...", prog);
+                float prog = 30f + ((float)i / sentences.Count) * 60f;
+                progressCallback?.Invoke($"Neural synthesis: sentence {i + 1} of {sentences.Count}...", prog);
 
-                float[] chunk = await SynthesizeSingleSentenceAsync(sentences[i], mode, voicePromptPath, voiceDesignPrompt, exaggeration, temperature, cfgWeight, repetitionPenalty);
+                float[] chunk = await SynthesizeSingleSentenceAsync(sentences[i]);
                 if (chunk != null && chunk.Length > 0)
                 {
                     generatedAudioChunks.Add(chunk);
                 }
+                else
+                {
+                    progressCallback?.Invoke($"WARNING: Sentence {i + 1} returned empty audio.", prog);
+                }
             }
 
-            progressCallback?.Invoke("Joining audio chunks with crossfade...", 95f);
-            float[] finalAudio = audioEngine.CrossfadeJoinChunks(generatedAudioChunks, crossfadeSeconds: 0.05f);
+            if (generatedAudioChunks.Count == 0)
+            {
+                progressCallback?.Invoke("ERROR: No audio generated. Check server logs.", 100f);
+                return Array.Empty<float>();
+            }
+
+            progressCallback?.Invoke("Joining audio chunks...", 95f);
+            float[] finalAudio = audioEngine.CrossfadeJoinChunks(generatedAudioChunks, crossfadeSeconds: 0.02f);
 
             progressCallback?.Invoke("Audio synthesis complete.", 100f);
             return finalAudio;
         }
 
-        private async Task<float[]> SynthesizeSingleSentenceAsync(
-            string sentence,
-            SynthesisMode mode,
-            string voicePromptPath,
-            string voiceDesignPrompt,
-            float exaggeration,
-            float temperature,
-            float cfgWeight,
-            float repetitionPenalty)
+        private async Task<float[]> SynthesizeSingleSentenceAsync(string sentence)
         {
-            // 1. Send request to local CUDA Qwen3-TTS Neural Server
             try
             {
                 var payload = new
                 {
                     text = sentence,
-                    mode = mode.ToString(),
-                    voice_prompt_path = voicePromptPath,
-                    voice_design_prompt = voiceDesignPrompt,
-                    exaggeration = exaggeration,
-                    temperature = temperature,
-                    cfg_weight = cfgWeight,
-                    repetition_penalty = repetitionPenalty
+                    speaker = SelectedSpeaker,
+                    language = "English",
+                    instruct = "",
+                    temperature = 0.7,
+                    top_p = 0.9,
+                    max_new_tokens = 2048
                 };
 
                 string json = JsonSerializer.Serialize(payload);
@@ -210,73 +240,28 @@ namespace Q3TTS.Native
                 if (response.IsSuccessStatusCode)
                 {
                     byte[] wavBytes = await response.Content.ReadAsByteArrayAsync();
-                    float[] pcm = ExtractPcmFromWavBytes(wavBytes);
-                    if (pcm != null && pcm.Length > 0) return pcm;
+                    return ExtractPcmFromWavBytes(wavBytes);
                 }
-            }
-            catch { }
-
-            // 2. Load Real Human Voice Audio WAV PCM
-            string targetPromptPath = voicePromptPath;
-            if (string.IsNullOrEmpty(targetPromptPath) || !File.Exists(targetPromptPath))
-            {
-                targetPromptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "default_voice_us_female.wav");
-            }
-
-            float[] refAudio = ReadWavPcm(targetPromptPath);
-            if (refAudio == null || refAudio.Length == 0)
-            {
-                refAudio = GenerateFallbackVoicePcm();
-            }
-
-            int sampleRate = 24000;
-            double words = sentence.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-            double duration = Math.Max(1.2, words * 0.32 + 0.4);
-            int totalSamples = (int)(sampleRate * duration);
-
-            float[] audio = new float[totalSamples];
-            int refLen = refAudio.Length;
-
-            for (int i = 0; i < totalSamples; i++)
-            {
-                double t = (double)i / sampleRate;
-                float refSample = refAudio[i % refLen];
-
-                double syllableEnv = Math.Pow(0.5 * (1.0 + Math.Cos(2.0 * Math.PI * 4.5 * t)), 1.2);
-
-                double env = 1.0;
-                double attack = 0.04;
-                double decay = 0.12;
-                if (t < attack) env = t / attack;
-                else if (t > duration - decay) env = Math.Max(0.0, (duration - t) / decay);
-
-                audio[i] = (float)(refSample * syllableEnv * env);
-            }
-
-            await Task.Delay(500); // Realistic neural inference duration
-            return audio;
-        }
-
-        private float[] ReadWavPcm(string wavPath)
-        {
-            if (!File.Exists(wavPath)) return Array.Empty<float>();
-            try
-            {
-                using var reader = new NAudio.Wave.AudioFileReader(wavPath);
-                int sampleCount = (int)(reader.Length / (reader.WaveFormat.BitsPerSample / 8));
-                float[] buffer = new float[sampleCount];
-                int read = reader.Read(buffer, 0, sampleCount);
-
-                if (reader.WaveFormat.SampleRate != 24000)
+                else
                 {
-                    return ResamplePcm(buffer, reader.WaveFormat.SampleRate, 24000);
+                    string errorBody = await response.Content.ReadAsStringAsync();
+                    System.Diagnostics.Debug.WriteLine($"[TTSEngine] Server returned {response.StatusCode}: {errorBody}");
                 }
-                return buffer;
             }
-            catch
+            catch (TaskCanceledException)
             {
-                return Array.Empty<float>();
+                System.Diagnostics.Debug.WriteLine("[TTSEngine] Request timed out (>120s). Text may be too long.");
             }
+            catch (HttpRequestException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[TTSEngine] Connection error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[TTSEngine] Unexpected error: {ex.Message}");
+            }
+
+            return Array.Empty<float>();
         }
 
         private float[] ExtractPcmFromWavBytes(byte[] wavBytes)
@@ -285,55 +270,39 @@ namespace Q3TTS.Native
             {
                 using var ms = new MemoryStream(wavBytes);
                 using var reader = new NAudio.Wave.WaveFileReader(ms);
-                var sampleProvider = new NAudio.Wave.SampleProviders.WaveToSampleProvider(reader);
-                List<float> samples = new List<float>();
+
+                // Calculate sample count properly
+                int bytesPerSample = reader.WaveFormat.BitsPerSample / 8;
+                int channels = reader.WaveFormat.Channels;
+                long totalSamples = reader.SampleCount;
+
+                // Read all samples as float
+                List<float> samples = new List<float>((int)totalSamples);
                 float[] buffer = new float[4096];
+                var sampleReader = new NAudio.Wave.SampleProviders.Pcm16BitToSampleProvider(reader);
                 int read;
-                while ((read = sampleProvider.Read(buffer, 0, buffer.Length)) > 0)
+                while ((read = sampleReader.Read(buffer, 0, buffer.Length)) > 0)
                 {
-                    for (int i = 0; i < read; i++) samples.Add(buffer[i]);
+                    for (int i = 0; i < read; i++)
+                        samples.Add(buffer[i]);
                 }
+
+                // If stereo, take left channel only
+                if (channels == 2)
+                {
+                    var mono = new List<float>(samples.Count / 2);
+                    for (int i = 0; i < samples.Count; i += 2)
+                        mono.Add(samples[i]);
+                    return mono.ToArray();
+                }
+
                 return samples.ToArray();
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[TTSEngine] WAV decode error: {ex.Message}");
                 return Array.Empty<float>();
             }
-        }
-
-        private float[] ResamplePcm(float[] input, int srcRate, int targetRate)
-        {
-            if (input == null || input.Length == 0 || srcRate == targetRate) return input ?? Array.Empty<float>();
-            double ratio = (double)targetRate / srcRate;
-            int newLen = (int)Math.Round(input.Length * ratio);
-            float[] output = new float[newLen];
-
-            for (int i = 0; i < newLen; i++)
-            {
-                double srcIdx = i / ratio;
-                int idx0 = (int)Math.Floor(srcIdx);
-                int idx1 = Math.Min(idx0 + 1, input.Length - 1);
-                double frac = srcIdx - idx0;
-
-                output[i] = (float)((1.0 - frac) * input[idx0] + frac * input[idx1]);
-            }
-            return output;
-        }
-
-        private float[] GenerateFallbackVoicePcm()
-        {
-            int sampleRate = 24000;
-            int samples = sampleRate * 3;
-            float[] pcm = new float[samples];
-
-            for (int i = 0; i < samples; i++)
-            {
-                double t = (double)i / sampleRate;
-                double f0 = 155.0 + 10.0 * Math.Sin(2.0 * Math.PI * 1.5 * t);
-                double voiced = 0.3 * Math.Sin(2.0 * Math.PI * f0 * t) + 0.15 * Math.Sin(2.0 * Math.PI * f0 * 2.5 * t);
-                pcm[i] = (float)(voiced * 0.3);
-            }
-            return pcm;
         }
 
         private List<string> SplitTextIntoSentences(string text, int maxChars = 350)
@@ -373,36 +342,11 @@ namespace Q3TTS.Native
             return result;
         }
 
-        private void GenerateDefaultUSVoicePrompt(string path)
-        {
-            try
-            {
-                string dir = Path.GetDirectoryName(path)!;
-                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
-                int sampleRate = 24000;
-                int samples = sampleRate * 3;
-                float[] pcm = new float[samples];
-
-                for (int i = 0; i < samples; i++)
-                {
-                    double t = (double)i / sampleRate;
-                    double f0 = 165.0 + 10.0 * Math.Sin(2.0 * Math.PI * 2.0 * t);
-                    double syllable = Math.Pow(0.5 * (1.0 + Math.Cos(2.0 * Math.PI * 4.0 * t)), 1.5);
-                    pcm[i] = (float)((0.35 * Math.Sin(2.0 * Math.PI * f0 * t) + 0.15 * Math.Sin(2.0 * Math.PI * f0 * 2.5 * t)) * syllable * 0.4);
-                }
-
-                AudioEngine engine = new AudioEngine();
-                engine.SaveWav(pcm, path, 1.0f);
-            }
-            catch { }
-        }
-
         public void Dispose()
         {
             if (_serverProcess != null && !_serverProcess.HasExited)
             {
-                try { _serverProcess.Kill(); } catch { }
+                try { _serverProcess.Kill(entireProcessTree: true); } catch { }
                 _serverProcess = null;
             }
             _httpClient?.Dispose();
