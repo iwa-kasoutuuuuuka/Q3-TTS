@@ -118,21 +118,21 @@
                                 <DockPanel Margin="0,0,0,12">
                                     <TextBlock Text="Exaggeration / 抑揚・感情表現" Foreground="White" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <TextBox x:Name="ExaggerationText" Text="{Binding ElementName=ExaggerationSlider, Path=Value, Mode=TwoWay, StringFormat={}{0:F2}}" Foreground="{StaticResource PrimaryBrush}" DockPanel.Dock="Right" Width="45" Height="24" TextAlignment="Right" VerticalContentAlignment="Center" Background="#252525" BorderBrush="#444"/>
-                                    <Slider x:Name="ExaggerationSlider" Minimum="0" Maximum="1" Value="0.30" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
+                                    <Slider x:Name="ExaggerationSlider" Minimum="0" Maximum="1" Value="0.10" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
 
                                 <!-- Stability / Temperature Slider -->
                                 <DockPanel Margin="0,0,0,12">
                                     <TextBlock Text="Stability (Temperature) / 発音安定性" Foreground="White" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <TextBox x:Name="TemperatureText" Text="{Binding ElementName=TemperatureSlider, Path=Value, Mode=TwoWay, StringFormat={}{0:F2}}" Foreground="{StaticResource PrimaryBrush}" DockPanel.Dock="Right" Width="45" Height="24" TextAlignment="Right" VerticalContentAlignment="Center" Background="#252525" BorderBrush="#444"/>
-                                    <Slider x:Name="TemperatureSlider" Minimum="0.1" Maximum="1.2" Value="0.50" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
+                                    <Slider x:Name="TemperatureSlider" Minimum="0.1" Maximum="1.2" Value="0.40" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
 
                                 <!-- CFG / Pace Slider -->
                                 <DockPanel Margin="0,0,0,12">
                                     <TextBlock Text="CFG / Pace Weight / テキスト追従度" Foreground="White" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <TextBox x:Name="CfgWeightText" Text="{Binding ElementName=CfgWeightSlider, Path=Value, Mode=TwoWay, StringFormat={}{0:F2}}" Foreground="{StaticResource PrimaryBrush}" DockPanel.Dock="Right" Width="45" Height="24" TextAlignment="Right" VerticalContentAlignment="Center" Background="#252525" BorderBrush="#444"/>
-                                    <Slider x:Name="CfgWeightSlider" Minimum="0" Maximum="1" Value="0.40" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
+                                    <Slider x:Name="CfgWeightSlider" Minimum="0" Maximum="1" Value="0.45" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
 
                                 <!-- Repetition Penalty Slider -->
