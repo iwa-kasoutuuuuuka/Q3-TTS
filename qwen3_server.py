@@ -140,7 +140,13 @@ def synthesize(req: SynthesizeRequest):
     if speaker_lower in SPEAKERS:
         speaker = SPEAKERS[speaker_lower]
 
-    print(f"[Q3-TTS Server] Synthesizing: text='{text[:80]}...', speaker={speaker}, lang={language}")
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
+    safe_text_preview = text[:80].encode('ascii', errors='replace').decode('ascii')
+    print(f"[Q3-TTS Server] Synthesizing: text='{safe_text_preview}...', speaker={speaker}, lang={language}")
     start_time = time.time()
 
     try:
