@@ -32,6 +32,15 @@ namespace Q3TTS.Native
         public float[] PcmWav24kHz { get; set; } = Array.Empty<float>();
     }
 
+    public class BatchDebugItem
+    {
+        public int LineNumber { get; set; }
+        public string OriginalText { get; set; } = "";
+        public string NormalizedText { get; set; } = "";
+        public string WavPath { get; set; } = "";
+        public float[] PcmData24kHz { get; set; } = Array.Empty<float>();
+    }
+
     public class WhisperVerifier : IDisposable
     {
         private readonly string _baseDir;
@@ -209,6 +218,63 @@ namespace Q3TTS.Native
                 writer.WriteLine($"Extra Words ({result.ExtraWords.Count}):");
                 writer.WriteLine(result.ExtraWords.Count > 0 ? string.Join(", ", result.ExtraWords) : "(None)");
                 writer.WriteLine("=================================================");
+            }
+            catch { }
+        }
+
+        public async Task SaveBatchDebugReportAsync(List<BatchDebugItem> items, string batchDebugFilePath)
+        {
+            if (items == null || items.Count == 0) return;
+
+            List<AutoDebugResult> results = new List<AutoDebugResult>();
+            double totalDuration = 0;
+
+            foreach (var item in items)
+            {
+                string transcribed = await TranscribeAudioAsync(item.PcmData24kHz);
+                double duration = (double)item.PcmData24kHz.Length / 24000.0;
+                totalDuration += duration;
+
+                var res = CompareText(item.OriginalText, item.NormalizedText, transcribed);
+                res.AudioWavPath = item.WavPath;
+                res.AudioDurationSeconds = duration;
+                results.Add(res);
+            }
+
+            double avgAccuracy = results.Count > 0 ? Math.Round(results.Average(r => r.MatchPercentage), 2) : 100.0;
+
+            try
+            {
+                using var writer = new StreamWriter(batchDebugFilePath, false, System.Text.Encoding.UTF8);
+                writer.WriteLine("=================================================");
+                writer.WriteLine("       Q3-TTS Batch STT Verification Report      ");
+                writer.WriteLine("=================================================");
+                writer.WriteLine($"Timestamp          : {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                writer.WriteLine($"Batch Log File     : {Path.GetFileName(batchDebugFilePath)}");
+                writer.WriteLine($"Total Lines        : {results.Count}");
+                writer.WriteLine($"Total Audio Time   : {totalDuration:F2} seconds");
+                writer.WriteLine($"Average Accuracy   : {avgAccuracy:F2}%");
+                writer.WriteLine("=================================================");
+                writer.WriteLine();
+
+                for (int i = 0; i < results.Count; i++)
+                {
+                    var res = results[i];
+                    writer.WriteLine($"--- Line {i + 1} of {results.Count} [{Path.GetFileName(res.AudioWavPath)}] ---");
+                    writer.WriteLine($"Duration: {res.AudioDurationSeconds:F2}s | Accuracy: {res.MatchPercentage:F2}%");
+                    writer.WriteLine("[Original Text]");
+                    writer.WriteLine(res.OriginalText);
+                    writer.WriteLine("[Normalized Text]");
+                    writer.WriteLine(res.NormalizedText);
+                    writer.WriteLine("[Whisper Transcribed]");
+                    writer.WriteLine(res.TranscribedText);
+                    if (res.MissingWords.Count > 0)
+                        writer.WriteLine($"Missing Words ({res.MissingWords.Count}): {string.Join(", ", res.MissingWords)}");
+                    if (res.ExtraWords.Count > 0)
+                        writer.WriteLine($"Extra Words ({res.ExtraWords.Count}): {string.Join(", ", res.ExtraWords)}");
+                    writer.WriteLine("-------------------------------------------------");
+                    writer.WriteLine();
+                }
             }
             catch { }
         }

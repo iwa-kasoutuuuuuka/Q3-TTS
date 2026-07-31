@@ -362,6 +362,7 @@ namespace Q3TTS.Native
                         string baseName = Path.GetFileNameWithoutExtension(dlg.FileName);
                         string ext = Path.GetExtension(dlg.FileName);
 
+                        List<BatchDebugItem> batchDebugItems = new List<BatchDebugItem>();
                         int digits = lines.Length >= 100 ? 3 : 2;
 
                         for (int i = 0; i < lines.Length; i++)
@@ -384,16 +385,26 @@ namespace Q3TTS.Native
 
                                 if (DebugSttCheckBox.IsChecked == true)
                                 {
-                                    string currentLine = lines[i];
-                                    string currentPath = lineFilePath;
-                                    float[] currentAudio = audio;
-                                    _ = Task.Run(async () =>
+                                    string norm = EnglishNormalizer.Normalize(lines[i]);
+                                    batchDebugItems.Add(new BatchDebugItem
                                     {
-                                        string norm = EnglishNormalizer.Normalize(currentLine);
-                                        await _whisperVerifier.VerifyAndLogAsync(currentLine, norm, currentAudio, currentPath);
+                                        LineNumber = i + 1,
+                                        OriginalText = lines[i],
+                                        NormalizedText = norm,
+                                        WavPath = lineFilePath,
+                                        PcmData24kHz = audio
                                     });
                                 }
                             }
+                        }
+
+                        if (DebugSttCheckBox.IsChecked == true && batchDebugItems.Count > 0)
+                        {
+                            string batchReportPath = Path.Combine(dir, $"{baseName}.debug.txt");
+                            _ = Task.Run(async () =>
+                            {
+                                await _whisperVerifier.SaveBatchDebugReportAsync(batchDebugItems, batchReportPath);
+                            });
                         }
                     }
 
