@@ -86,7 +86,7 @@ namespace Q3TTS.Native
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = "uv",
-                        Arguments = $"run --with qwen-tts,torch,soundfile,fastapi,uvicorn,pydantic python \"{scriptPath}\" --port 8080 --size {sizeArg}",
+                        Arguments = $"run --no-project --with qwen-tts,torch,soundfile,fastapi,uvicorn,pydantic python \"{scriptPath}\" --port 8080 --size {sizeArg}",
                         WorkingDirectory = Path.GetDirectoryName(scriptPath),
                         UseShellExecute = false,
                         CreateNoWindow = true,
@@ -184,7 +184,7 @@ namespace Q3TTS.Native
 
             progressCallback?.Invoke("Sending to Qwen3-TTS neural engine...", 30f);
 
-            List<string> sentences = SplitTextIntoSentences(normalizedText, maxChars: 350);
+            List<string> sentences = SplitTextIntoSentences(normalizedText, maxChars: 180);
             List<float[]> generatedAudioChunks = new List<float[]>();
 
             AudioEngine audioEngine = new AudioEngine();
@@ -192,9 +192,9 @@ namespace Q3TTS.Native
             for (int i = 0; i < sentences.Count; i++)
             {
                 float prog = 30f + ((float)i / sentences.Count) * 60f;
-                progressCallback?.Invoke($"Neural synthesis: sentence {i + 1} of {sentences.Count}...", prog);
+                progressCallback?.Invoke($"Neural synthesis: chunk {i + 1} of {sentences.Count}...", prog);
 
-                float[] chunk = await SynthesizeSingleSentenceAsync(sentences[i]);
+                float[] chunk = await SynthesizeSingleSentenceAsync(sentences[i], temperature);
                 if (chunk != null && chunk.Length > 0)
                 {
                     generatedAudioChunks.Add(chunk);
@@ -218,7 +218,7 @@ namespace Q3TTS.Native
             return finalAudio;
         }
 
-        private async Task<float[]> SynthesizeSingleSentenceAsync(string sentence)
+        private async Task<float[]> SynthesizeSingleSentenceAsync(string sentence, float temperature = 0.55f)
         {
             try
             {
@@ -228,7 +228,7 @@ namespace Q3TTS.Native
                     speaker = SelectedSpeaker,
                     language = "English",
                     instruct = "",
-                    temperature = 0.7,
+                    temperature = Math.Clamp(temperature, 0.1f, 1.0f),
                     top_p = 0.9,
                     max_new_tokens = 2048
                 };
@@ -305,12 +305,12 @@ namespace Q3TTS.Native
             }
         }
 
-        private List<string> SplitTextIntoSentences(string text, int maxChars = 350)
+        private List<string> SplitTextIntoSentences(string text, int maxChars = 180)
         {
             List<string> result = new List<string>();
             if (string.IsNullOrWhiteSpace(text)) return result;
 
-            string[] rawSentences = Regex.Split(text, @"(?<=[.!?])\s+|\r?\n");
+            string[] rawSentences = Regex.Split(text, @"(?<=[.!?;\n])\s+");
             StringBuilder currentChunk = new StringBuilder();
 
             foreach (var s in rawSentences)
@@ -318,7 +318,37 @@ namespace Q3TTS.Native
                 string trimmed = s.Trim();
                 if (string.IsNullOrEmpty(trimmed)) continue;
 
-                if (currentChunk.Length + trimmed.Length + 1 <= maxChars)
+                if (trimmed.Length > maxChars)
+                {
+                    if (currentChunk.Length > 0)
+                    {
+                        result.Add(currentChunk.ToString());
+                        currentChunk.Clear();
+                    }
+
+                    string[] subClauses = Regex.Split(trimmed, @"(?<=,)\s+");
+                    foreach (var clause in subClauses)
+                    {
+                        string cTrim = clause.Trim();
+                        if (string.IsNullOrEmpty(cTrim)) continue;
+
+                        if (currentChunk.Length + cTrim.Length + 1 <= maxChars)
+                        {
+                            if (currentChunk.Length > 0) currentChunk.Append(" ");
+                            currentChunk.Append(cTrim);
+                        }
+                        else
+                        {
+                            if (currentChunk.Length > 0)
+                            {
+                                result.Add(currentChunk.ToString());
+                                currentChunk.Clear();
+                            }
+                            currentChunk.Append(cTrim);
+                        }
+                    }
+                }
+                else if (currentChunk.Length + trimmed.Length + 1 <= maxChars)
                 {
                     if (currentChunk.Length > 0) currentChunk.Append(" ");
                     currentChunk.Append(trimmed);
