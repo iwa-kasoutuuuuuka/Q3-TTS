@@ -231,7 +231,7 @@ namespace Q3TTS.Native
                 return;
             }
 
-            PlayButton.Content = "Stop";
+            PlayButton.Content = "Stop / 停止";
             _isPlaying = true;
             SetStatus("Synthesizing American English speech...", 10);
 
@@ -288,7 +288,7 @@ namespace Q3TTS.Native
             Dispatcher.Invoke(() =>
             {
                 _isPlaying = false;
-                PlayButton.Content = "Play Speech";
+                PlayButton.Content = "Play Speech / 再生";
                 SetStatus("Ready", 100);
             });
         }
