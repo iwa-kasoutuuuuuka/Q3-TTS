@@ -3,8 +3,10 @@
 # Lines starting with # are comments.
 
 # === Tech Terms ===
-AI,A. I.
+AI,ay eye
+Anormaly,anomaly
 Anomaly,anomaly
+DeVIEW,dee view
 ML,em ell
 DL,dee ell
 IoT,eye oh tee

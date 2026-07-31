@@ -324,7 +324,7 @@ namespace Q3TTS.Native
                 StringBuilder sb = new StringBuilder();
                 foreach (char c in acronym)
                 {
-                    sb.Append(c).Append(". ");
+                    sb.Append(c).Append(" ");
                 }
                 return sb.ToString().TrimEnd();
             });

@@ -374,7 +374,7 @@ namespace Q3TTS.Native
 
                             float[] audio = await Task.Run(() => _ttsEngine.GenerateSpeechAsync(
                                 lines[i], mode, promptPath, designPrompt, exaggeration, temp, cfg, rep,
-                                (msg, prog) => { }
+                                (msg, prog) => Dispatcher.Invoke(() => SetStatus($"Generating WAV line {i + 1}/{lines.Length}: {msg}", lineProg))
                             ));
 
                             if (audio != null && audio.Length > 0)
@@ -384,8 +384,14 @@ namespace Q3TTS.Native
 
                                 if (DebugSttCheckBox.IsChecked == true)
                                 {
-                                    string norm = EnglishNormalizer.Normalize(lines[i]);
-                                    await _whisperVerifier.VerifyAndLogAsync(lines[i], norm, audio, lineFilePath);
+                                    string currentLine = lines[i];
+                                    string currentPath = lineFilePath;
+                                    float[] currentAudio = audio;
+                                    _ = Task.Run(async () =>
+                                    {
+                                        string norm = EnglishNormalizer.Normalize(currentLine);
+                                        await _whisperVerifier.VerifyAndLogAsync(currentLine, norm, currentAudio, currentPath);
+                                    });
                                 }
                             }
                         }
