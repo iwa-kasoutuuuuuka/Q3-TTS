@@ -260,12 +260,24 @@ namespace Q3TTS.Native
 
                     if (DebugSttCheckBox.IsChecked == true)
                     {
+                        string currentText = text;
+                        float[] currentAudio = _lastGeneratedAudio;
+                        float currentSpeed = speed;
                         _ = Task.Run(async () =>
                         {
-                            string norm = EnglishNormalizer.Normalize(text);
-                            string tempWav = Path.Combine(Path.GetTempPath(), $"q3tts_debug_{DateTime.Now.Ticks}.wav");
-                            _audioEngine.SaveWav(_lastGeneratedAudio, tempWav, speed);
-                            await _whisperVerifier.VerifyAndLogAsync(text, norm, _lastGeneratedAudio, tempWav);
+                            try
+                            {
+                                string norm = EnglishNormalizer.Normalize(currentText);
+                                string playSpeechWav = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "q3tts_play_speech.wav");
+                                _audioEngine.SaveWav(currentAudio, playSpeechWav, currentSpeed);
+                                var result = await _whisperVerifier.VerifyAndLogAsync(currentText, norm, currentAudio, playSpeechWav);
+                                string logName = Path.GetFileName(Path.ChangeExtension(playSpeechWav, ".debug.txt"));
+                                Dispatcher.Invoke(() => SetStatus($"STT log saved: {logName} ({result.MatchPercentage:F1}% match)", 100));
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"[Whisper STT Error] {ex.Message}");
+                            }
                         });
                     }
                 }
@@ -351,8 +363,11 @@ namespace Q3TTS.Native
 
                             if (DebugSttCheckBox.IsChecked == true)
                             {
+                                SetStatus("Generating Whisper STT verification log (.debug.txt)...", 95);
                                 string norm = EnglishNormalizer.Normalize(lines[0]);
-                                await _whisperVerifier.VerifyAndLogAsync(lines[0], norm, audio, dlg.FileName);
+                                var res = await _whisperVerifier.VerifyAndLogAsync(lines[0], norm, audio, dlg.FileName);
+                                string reportName = Path.GetFileName(Path.ChangeExtension(dlg.FileName, ".debug.txt"));
+                                SetStatus($"STT verification log saved: {reportName} ({res.MatchPercentage:F1}% match)", 100);
                             }
                         }
                     }
@@ -400,19 +415,22 @@ namespace Q3TTS.Native
 
                         if (DebugSttCheckBox.IsChecked == true && batchDebugItems.Count > 0)
                         {
+                            SetStatus("Generating Whisper STT verification log (.debug.txt)...", 95);
                             string batchReportPath = Path.Combine(dir, $"{baseName}.debug.txt");
-                            _ = Task.Run(async () =>
+                            await Task.Run(async () =>
                             {
                                 await _whisperVerifier.SaveBatchDebugReportAsync(batchDebugItems, batchReportPath);
                             });
+                            SetStatus($"STT verification log saved: {Path.GetFileName(batchReportPath)}", 100);
                         }
                     }
 
                     if (savedFiles.Count > 0)
                     {
+                        string debugNote = DebugSttCheckBox.IsChecked == true ? "\n\nSTT verification log (.debug.txt) created!" : "";
                         SetStatus($"Successfully generated {savedFiles.Count} WAV file{(savedFiles.Count == 1 ? "" : "s")}", 100);
                         string fileList = string.Join("\n", savedFiles.Select(f => Path.GetFileName(f)));
-                        MessageBox.Show($"Generated {savedFiles.Count} WAV file{(savedFiles.Count == 1 ? "" : "s")}:\n\n{fileList}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBox.Show($"Generated {savedFiles.Count} WAV file{(savedFiles.Count == 1 ? "" : "s")}:\n\n{fileList}{debugNote}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     else
                     {
