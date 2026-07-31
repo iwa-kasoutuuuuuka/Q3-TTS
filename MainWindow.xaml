@@ -93,7 +93,7 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="VoicePromptPathText" IsReadOnly="True" Text="default_voice_us_female.wav" Height="32" Foreground="LightGray" VerticalContentAlignment="Center" Padding="5,0"/>
+                                        <TextBox x:Name="VoicePromptPathText" IsReadOnly="True" Text="default_voice_us_narrator.wav" Height="32" Foreground="LightGray" VerticalContentAlignment="Center" Padding="5,0"/>
                                         <Button x:Name="SelectVoiceButton" Grid.Column="1" Content="Browse" Width="60" Margin="5,0,0,0" Click="SelectVoice_Click"/>
                                     </Grid>
                                 </StackPanel>
@@ -101,7 +101,7 @@
                                 <!-- Voice Design Text Prompt Panel -->
                                 <StackPanel x:Name="VoiceDesignPanel" Margin="0,0,0,15" Visibility="Collapsed">
                                     <TextBlock Text="Voice Design Prompt / 音声指示プロンプト" Foreground="White" Margin="0,0,0,5"/>
-                                    <TextBox x:Name="VoiceDesignText" Text="A clear, professional American female voice speaking calmly." Height="50" TextWrapping="Wrap" AcceptsReturn="True" Foreground="White" Background="#2A2A2A" BorderBrush="#444" Padding="5"/>
+                                    <TextBox x:Name="VoiceDesignText" Text="A clear, articulate, and professional American English corporate training narrator speaking calmly and confidently." Height="50" TextWrapping="Wrap" AcceptsReturn="True" Foreground="White" Background="#2A2A2A" BorderBrush="#444" Padding="5"/>
                                 </StackPanel>
 
                                 <TextBlock Text="Speech Parameters / 音声パラメータ設定" FontSize="14" FontWeight="Bold" Foreground="White" Margin="0,5,0,8"/>
@@ -111,21 +111,21 @@
                                 <DockPanel Margin="0,0,0,12">
                                     <TextBlock Text="Speed (WSOLA) / 話速" Foreground="White" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <TextBox x:Name="SpeedText" Text="{Binding ElementName=SpeedSlider, Path=Value, Mode=TwoWay, StringFormat={}{0:F2}}" Foreground="{StaticResource PrimaryBrush}" DockPanel.Dock="Right" Width="45" Height="24" TextAlignment="Right" VerticalContentAlignment="Center" Background="#252525" BorderBrush="#444"/>
-                                    <Slider x:Name="SpeedSlider" Minimum="0.5" Maximum="2.0" Value="1.0" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
+                                    <Slider x:Name="SpeedSlider" Minimum="0.5" Maximum="2.0" Value="0.95" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
 
                                 <!-- Exaggeration Slider -->
                                 <DockPanel Margin="0,0,0,12">
                                     <TextBlock Text="Exaggeration / 抑揚・感情表現" Foreground="White" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <TextBox x:Name="ExaggerationText" Text="{Binding ElementName=ExaggerationSlider, Path=Value, Mode=TwoWay, StringFormat={}{0:F2}}" Foreground="{StaticResource PrimaryBrush}" DockPanel.Dock="Right" Width="45" Height="24" TextAlignment="Right" VerticalContentAlignment="Center" Background="#252525" BorderBrush="#444"/>
-                                    <Slider x:Name="ExaggerationSlider" Minimum="0" Maximum="1" Value="0.35" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
+                                    <Slider x:Name="ExaggerationSlider" Minimum="0" Maximum="1" Value="0.30" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
 
                                 <!-- Stability / Temperature Slider -->
                                 <DockPanel Margin="0,0,0,12">
                                     <TextBlock Text="Stability (Temperature) / 発音安定性" Foreground="White" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <TextBox x:Name="TemperatureText" Text="{Binding ElementName=TemperatureSlider, Path=Value, Mode=TwoWay, StringFormat={}{0:F2}}" Foreground="{StaticResource PrimaryBrush}" DockPanel.Dock="Right" Width="45" Height="24" TextAlignment="Right" VerticalContentAlignment="Center" Background="#252525" BorderBrush="#444"/>
-                                    <Slider x:Name="TemperatureSlider" Minimum="0.1" Maximum="1.2" Value="0.55" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
+                                    <Slider x:Name="TemperatureSlider" Minimum="0.1" Maximum="1.2" Value="0.50" TickFrequency="0.01" IsSnapToTickEnabled="True"/>
                                 </DockPanel>
 
                                 <!-- CFG / Pace Slider -->
