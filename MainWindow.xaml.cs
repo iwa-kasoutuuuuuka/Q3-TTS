@@ -158,6 +158,41 @@ namespace Q3TTS.Native
             UpdateCharCount();
         }
 
+        private void ParamText_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox tb)
+            {
+                Slider? targetSlider = tb.Name switch
+                {
+                    "SpeedText" => SpeedSlider,
+                    "ExaggerationText" => ExaggerationSlider,
+                    "TemperatureText" => TemperatureSlider,
+                    "CfgWeightText" => CfgWeightSlider,
+                    "RepetitionPenaltyText" => RepetitionPenaltySlider,
+                    _ => null
+                };
+
+                if (targetSlider != null && double.TryParse(tb.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double val))
+                {
+                    double clamped = Math.Clamp(val, targetSlider.Minimum, targetSlider.Maximum);
+                    if (Math.Abs(targetSlider.Value - clamped) > 0.001)
+                    {
+                        targetSlider.Value = clamped;
+                    }
+                }
+            }
+        }
+
+        private void ParamText_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && sender is TextBox tb)
+            {
+                ParamText_TextChanged(tb, null!);
+                Keyboard.ClearFocus();
+                e.Handled = true;
+            }
+        }
+
         private void UpdateCharCount()
         {
             int count = InputTextBox.Text.Length;
