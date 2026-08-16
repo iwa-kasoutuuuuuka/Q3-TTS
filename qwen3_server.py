@@ -72,6 +72,12 @@ def load_model(size: str = "1.7B"):
     _device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[Q3-TTS Server] Device: {_device} ({torch.cuda.get_device_name(0) if _device == 'cuda' else 'CPU'})")
 
+    if _device == "cuda":
+        # Enable Tensor Core TF32 matrix multiplication for fast throughput
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
+
     try:
         from qwen_tts import Qwen3TTSModel
 
@@ -80,7 +86,7 @@ def load_model(size: str = "1.7B"):
 
         print(f"[Q3-TTS Server] Loading model from: {model_path}")
 
-        dtype = torch.bfloat16 if _device == "cuda" else torch.float32
+        dtype = torch.bfloat16 if _device == "cuda" and torch.cuda.is_bf16_supported() else (torch.float16 if _device == "cuda" else torch.float32)
 
         _model = Qwen3TTSModel.from_pretrained(
             model_path,
@@ -90,6 +96,20 @@ def load_model(size: str = "1.7B"):
 
         _model_loaded = True
         _sample_rate = 24000  # Qwen3-TTS outputs 24kHz audio
+
+        # Warm up model to eliminate cold-start latency on first user synthesis
+        print("[Q3-TTS Server] Warming up neural engine...")
+        try:
+            with torch.inference_mode():
+                _model.generate_custom_voice(
+                    text="Ready.",
+                    language="English",
+                    speaker="Ryan",
+                    max_new_tokens=32
+                )
+            print("[Q3-TTS Server] Warmup complete! Engine ready for real-time synthesis.")
+        except Exception as we:
+            print(f"[Q3-TTS Server] Warmup skipped ({we})")
 
         speakers = _model.get_supported_speakers() if hasattr(_model, 'get_supported_speakers') else list(SPEAKERS.values())
         languages = _model.get_supported_languages() if hasattr(_model, 'get_supported_languages') else ["English"]
@@ -150,7 +170,7 @@ def synthesize(req: SynthesizeRequest):
     start_time = time.time()
 
     try:
-        # Use the official generate_custom_voice API
+        # Use the official generate_custom_voice API with inference_mode
         generate_kwargs = {
             "text": text,
             "language": language,
@@ -169,7 +189,8 @@ def synthesize(req: SynthesizeRequest):
         if req.max_new_tokens != 2048:
             generate_kwargs["max_new_tokens"] = req.max_new_tokens
 
-        wavs, sr = _model.generate_custom_voice(**generate_kwargs)
+        with torch.inference_mode():
+            wavs, sr = _model.generate_custom_voice(**generate_kwargs)
 
         elapsed = time.time() - start_time
         audio_data = wavs[0]  # First (and only) result

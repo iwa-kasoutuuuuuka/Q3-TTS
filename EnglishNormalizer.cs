@@ -109,8 +109,21 @@ namespace Q3TTS.Native
         private static readonly Regex StorageGbRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*GB\b", RegexOptions.Compiled);
         private static readonly Regex StorageTbRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*TB\b", RegexOptions.Compiled);
         private static readonly Regex StorageMbRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*MB\b", RegexOptions.Compiled);
+        private static readonly Regex StorageKbRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*KB\b", RegexOptions.Compiled);
         private static readonly Regex FreqGhzRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*GHz\b", RegexOptions.Compiled);
         private static readonly Regex FreqMhzRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*MHz\b", RegexOptions.Compiled);
+        private static readonly Regex FreqKhzRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*kHz\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex SpeedMbpsRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*Mbps\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex SpeedGbpsRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*Gbps\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex LengthMmRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*mm\b", RegexOptions.Compiled);
+        private static readonly Regex LengthCmRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*cm\b", RegexOptions.Compiled);
+        private static readonly Regex LengthUmRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*(?:μm|um)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex LengthNmRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*nm\b", RegexOptions.Compiled);
+        private static readonly Regex TimeMsRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*ms\b", RegexOptions.Compiled);
+        private static readonly Regex TimeUsRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*(?:μs|us)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex VoltRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*V\b", RegexOptions.Compiled);
+        private static readonly Regex WattRegex = new Regex(@"\b(\d+(?:\.\d+)?)\s*W\b", RegexOptions.Compiled);
+        private static readonly Regex EduSectionRegex = new Regex(@"\b(Section|Chapter|Step|Part)\s+(\d+)[:\.]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private static readonly Regex AmpSpacedRegex = new Regex(@"\s+&\s+", RegexOptions.Compiled);
         private static readonly Regex AmpWordRegex = new Regex(@"\b&\b", RegexOptions.Compiled);
@@ -177,6 +190,7 @@ namespace Q3TTS.Native
             }
 
             // 4. Units & Measurements (Expand before numbers)
+            text = EduSectionRegex.Replace(text, "$1 $2, ");
             text = PercentRegex.Replace(text, "$1 percent");
             text = DegreeFRegex.Replace(text, "$1 degrees fahrenheit");
             text = DegreeCRegex.Replace(text, "$1 degrees celsius");
@@ -184,11 +198,23 @@ namespace Q3TTS.Native
             text = SpeedKmhRegex.Replace(text, "$1 kilometers per hour");
             text = WeightKgRegex.Replace(text, "$1 kilograms");
             text = WeightLbsRegex.Replace(text, "$1 pounds");
-            text = StorageGbRegex.Replace(text, "$1 gigabytes");
             text = StorageTbRegex.Replace(text, "$1 terabytes");
+            text = StorageGbRegex.Replace(text, "$1 gigabytes");
             text = StorageMbRegex.Replace(text, "$1 megabytes");
+            text = StorageKbRegex.Replace(text, "$1 kilobytes");
             text = FreqGhzRegex.Replace(text, "$1 gigahertz");
             text = FreqMhzRegex.Replace(text, "$1 megahertz");
+            text = FreqKhzRegex.Replace(text, "$1 kilohertz");
+            text = SpeedGbpsRegex.Replace(text, "$1 gigabits per second");
+            text = SpeedMbpsRegex.Replace(text, "$1 megabits per second");
+            text = LengthUmRegex.Replace(text, "$1 micrometers");
+            text = LengthNmRegex.Replace(text, "$1 nanometers");
+            text = LengthMmRegex.Replace(text, "$1 millimeters");
+            text = LengthCmRegex.Replace(text, "$1 centimeters");
+            text = TimeUsRegex.Replace(text, "$1 microseconds");
+            text = TimeMsRegex.Replace(text, "$1 milliseconds");
+            text = VoltRegex.Replace(text, "$1 volts");
+            text = WattRegex.Replace(text, "$1 watts");
 
             // 5. Currency
             text = DollarRegex.Replace(text, match =>

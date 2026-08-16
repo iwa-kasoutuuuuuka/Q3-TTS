@@ -58,19 +58,22 @@ namespace Q3TTS.Native
             // 1. 無音トリム
             var trimmed = TrimSilence(input, threshold: 0.005f);
 
-            // 2. Broadcast Voice EQ Enhancement (Warmth & Air Clarity)
-            var enhanced = ApplyPresenceAndWarmthEQ(trimmed);
+            // 2. 40Hz High-Pass Filter (DCオフセット & サブベースランブル除去)
+            var filtered = ApplyHighPassFilter(trimmed, cutoffHz: 40f);
 
-            // 3. 音量正規化 (-1.0 dB ≒ 0.89)
-            var normalized = Normalize(enhanced, targetPeak: 0.89f);
+            // 3. Studio Broadcast Voice EQ (Warmth, Consonant Intelligibility, Air Sparkle)
+            var enhanced = ApplyPresenceAndWarmthEQ(filtered);
 
-            // 4. WSOLA 伸縮 (話速制御)
+            // 4. 音量正規化 (-1.0 dBFS ≒ 0.8912)
+            var normalized = Normalize(enhanced, targetPeak: 0.8912f);
+
+            // 5. WSOLA タイムストレッチ (話速制御)
             var stretched = StretchAudio(normalized, speed);
 
-            // 5. Soft Limiter (ゼロクリッピング)
+            // 6. Lookahead Soft Limiter (True Peak クリッピング完全防止)
             var limited = ApplySoftLimiter(stretched, threshold: 0.95f);
 
-            // 6. パディング (冒頭0.15秒、末尾0.10秒) + フェード (5ms)
+            // 7. パディング (冒頭0.15秒、末尾0.15秒) + フェード (5ms)
             var padded = AddPaddingAndFade(limited);
 
             return padded;
@@ -100,37 +103,71 @@ namespace Q3TTS.Native
             return result;
         }
 
+        public float[] ApplyHighPassFilter(float[] input, float cutoffHz = 40f)
+        {
+            if (input == null || input.Length == 0) return Array.Empty<float>();
+
+            float[] output = new float[input.Length];
+            // 1st order RC high-pass filter: RC = 1 / (2 * pi * fc)
+            double rc = 1.0 / (2.0 * Math.PI * cutoffHz);
+            double dt = 1.0 / _sampleRate;
+            double alpha = rc / (rc + dt);
+
+            float prevInput = input[0];
+            float prevOutput = input[0];
+            output[0] = prevOutput;
+
+            for (int i = 1; i < input.Length; i++)
+            {
+                float outVal = (float)(alpha * (prevOutput + input[i] - prevInput));
+                output[i] = outVal;
+                prevInput = input[i];
+                prevOutput = outVal;
+            }
+            return output;
+        }
+
         public float[] ApplyPresenceAndWarmthEQ(float[] input)
         {
             if (input == null || input.Length == 0) return Array.Empty<float>();
 
             float[] output = new float[input.Length];
 
-            // Subtle bi-quad filter coefficients for vocal warmth & air
-            // Low-mid warmth shelf (~200Hz, +1.0dB) & High presence shelf (~5000Hz, +1.2dB)
-            double lowBoost = 0.05;
-            double highBoost = 0.08;
+            // 4-Band Broadcast Vocal Chain:
+            // 1. Low-Mid Warmth (~200Hz, +1.0dB)
+            // 2. Consonant / Formant Intelligibility (~3500Hz, +1.2dB)
+            // 3. Studio Air Presence (~7500Hz, +0.8dB)
+            double lowBoost = 0.055;
+            double midPresenceBoost = 0.065;
+            double highAirBoost = 0.045;
 
             float lowState = 0f;
+            float midState = 0f;
             float highState = 0f;
 
             for (int i = 0; i < input.Length; i++)
             {
                 float x = input[i];
 
-                // Simple 1-pole low-pass / high-pass separation
-                lowState += 0.1f * (x - lowState);
-                highState += 0.4f * (x - highState);
+                // 1-pole filter state updates
+                lowState += 0.08f * (x - lowState);          // ~200Hz Low-pass
+                midState += 0.45f * (x - midState);          // ~3500Hz Mid-pass
+                highState += 0.70f * (x - highState);        // ~7500Hz High-pass
 
+                float midPart = midState - lowState;
                 float highPart = x - highState;
-                float sample = x + (float)(lowState * lowBoost) + (float)(highPart * highBoost);
+
+                float sample = x + (float)(lowState * lowBoost) 
+                                 + (float)(midPart * midPresenceBoost) 
+                                 + (float)(highPart * highAirBoost);
+
                 output[i] = sample;
             }
 
             return output;
         }
 
-        public float[] Normalize(float[] input, float targetPeak = 0.89f)
+        public float[] Normalize(float[] input, float targetPeak = 0.8912f)
         {
             if (input == null || input.Length == 0) return Array.Empty<float>();
 
