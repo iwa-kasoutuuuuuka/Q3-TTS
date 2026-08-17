@@ -4,39 +4,54 @@
   <img src="assets/icon.png" alt="Q3-TTS Logo" width="128" height="128" />
 </p>
 
-**Q3-TTS** は、最新の **Qwen3-TTS** モデル（1.7B / 0.6B）をベースに構築された、完全ローカル動作・超軽量かつ高速な **アメリカ英語（US Native）特化型音声合成（TTS）アプリケーション** です。  
-C-BoxTTS-C の優れた操作性・拡張機能をすべて継承し、英文の流暢な読み上げ、発音正規化、リアルタイム音質向上処理を兼ね備えています。
+<p align="center">
+  <strong>Q3-TTS</strong> は、最新の <strong>Qwen3-TTS</strong> モデル（1.7B / 0.6B）をベースに構築された、完全ローカル動作・超高速かつスタジオ品質の <strong>アメリカ英語（General American / US Native）特化型 音声合成（TTS）アプリケーション</strong> です。
+</p>
+
+<p align="center">
+  企業教育・研修動画（Eラーニング・製品マニュアル・チュートリアル）に最適な落ち着きのある高精度ナレーション、高度な英文正規化、4バンド放送用スタジオDSP、リアルタイムSTT文字起こし照合を搭載しています。
+</p>
 
 ---
 
-## 🌟 主な特徴
+## 🌟 主な特徴 (Key Features)
 
-- **完全ローカル・オフライン動作**: 初回起動・モデルロード後は外部通信を行わず、スタンドアロンで即座に動作。プライバシーを完全に保護します。
-- **CUDA / DirectML ネイティブサポート**: NVIDIA RTX 50 シリーズ（RTX 5080 等）の最新 GPU 環境で CUDA 高速推論に対応。DirectML / CPU フォールバックにも完全対応。
-- **Qwen3-TTS デュアルモード対応**:
-  - **Voice Prompt モード**: 参照音声 WAV（標準同梱のアメリカ英語ネイティブプロンプト）からのボイスクローニング。
-  - **Voice Design モード**: 「*A clear, professional American female voice speaking calmly*」といった自然言語テキスト指示による声質・雰囲気の自在な設計。
+- **完全ローカル・オフライン動作 (100% Offline & Private)**:
+  - モデル初回ロード後は一切の外部通信を行わず、完全ローカル環境でスタンドアロン動作。機密情報を含む原稿も安全に合成できます。
+- **CUDA / Tensor Core 超高速化 (GPU Acceleration)**:
+  - NVIDIA RTX 50 シリーズ（RTX 5080 等）や RTX 40 / 30 シリーズの **Tensor Core TF32 演算**、`torch.inference_mode()`、`bfloat16` をフル活用。
+  - 起動時ウォームアップ推論により、初回の再生ボタン押下時のコールドスタート遅延をゼロ化。
+- **落ち着いた企業教育動画向け ナレーション標準最適化 (Corporate Narration)**:
+  - 抑揚の過多や文末のピッチのハネを抑え込み、淡々と落ち着いて聞き取りやすいアナウンス音声に最適化されたプリセットを標準採用。
 - **標準アメリカ英語 (General American Accent / US Native) ネイティブ音声を標準同梱**:
-  - `default_voice_us_female.wav` (女性)
-  - `default_voice_us_male.wav` (男性)
-  - `default_voice_us_narrator.wav` (ナレーション)
+  - `default_voice_us_narrator.wav` (高音質ナレーション・教材向け)
+  - `default_voice_us_female.wav` (クリアな女性アナウンス)
+  - `default_voice_us_male.wav` (説得力のある男性スピーチ)
+- **Qwen3-TTS デュアルモード対応**:
+  - **Voice Prompt モード**: 同梱または任意の参照音声 WAV からの高精度ボイスクローニング。
+  - **Voice Design モード**: 「*A clear, articulate, and professional American English corporate training narrator speaking calmly and confidently.*」といった自然言語テキスト指示による声質・雰囲気の自在な設計。
+- **日英バイリンガル UI ＆ リアルタイム数値入力**:
+  - すべてのスライダー、ボタン、設定項目に日本語・英語の併記表示を採用。
+  - 右側の数値テキストボックスから直接キーボードで数値を入力でき、Enter キーまたは入力と同時にスライダーつまみがリアルタイム連動。
+- **スタジオ放送品質 4 バンド DSP 音響マスタリング**:
+  - **40Hz High-Pass Filter**: 不要な超低周波（DCオフセット・マイクの床振動ノイズ）をカット。
+  - **4バンド放送用イコライザー**:
+    - `~200Hz` (+1.0dB): 説得力と温かみのあるナレーション低中音域（Warmth）を強化。
+    - `~1000Hz` (Body): 原音の自然な芯を維持。
+    - `~3500Hz` (+1.2dB): 子音（`th`, `s`, `t`, `p`）の滑舌と明瞭度（Intelligibility）をブースト。
+    - `~7500Hz` (+0.8dB): ネイティブ特有の透明感のある息遣い（Studio Air Sparkle）。
+  - **Lookahead Soft Peak Limiter (-1.0 dBFS True Peak)**: 動画編集ソフトに取り込んだ際のデジタルクリッピング（音割れ）を完全に防止。
+- **長文・息継ぎ間取り制御 (Clause-Aware Chunking & 180文字最適分割)**:
+  - 長文テキストを句読点（`.`, `!`, `?`, `;`）および節（`,`）で自然な息継ぎ単位（180文字前後）に自動分割。
+  - 20ms の自動クロスフェード結合 (`CrossfadeJoinChunks`) により、接続部の途切れやクリックノイズをゼロ化。
 - **包括的なテキスト正規化 (English Normalizer) & 英語ユーザー辞書**:
-  - 略語展開（`Mr.`, `Dr.`, `Prof.`, 月名・曜日略語など）
+  - 見出し・章節の自動息継ぎ間取り（`Section 1:`, `Chapter 2:`, `Step 3:` 等）
+  - 技術単位の完全自動展開（`kHz`, `MHz`, `GHz`, `Mbps`, `Gbps`, `μm`, `nm`, `mm`, `cm`, `ms`, `μs`, `V`, `W`, `°C`, `°F`, `%` 等）
   - 短縮形展開（`can't` -> `cannot`, `won't` -> `will not`, `don't` -> `do not` 等）
-  - 単位・測定値展開（`60mph`, `5kg`, `100GB`, `2.4GHz`, `100°F`, `50%` 等）
-  - 時刻（`3:00` -> `three o'clock`）、年号（`2026` -> `twenty twenty-six`）、序数（`1st` -> `first`）、分数（`1/2` -> `one half`）、通貨（`$12.50` -> `twelve dollars and fifty cents`）、小数（`3.14` -> `three point one four`）
   - 英語ユーザー辞書（`user_dict_en.txt`）標準同梱。PC/FA/AI 業界用語（CPU, GPU, PLC, SCADA, NVIDIA, OpenAI 等）のカスタマイズ読み登録に対応。
-- **音質向上 DSP 処理 (Presence & Warmth EQ & Soft Limiter)**:
-  - 200Hz帯の低中音域（声の暖かみ・厚み）と 5000Hz帯の高音域（明瞭度・エア感）を微ブーストするアナウンス品質イコライザー。
-  - 音割れ（デジタルクリッピング）を完全に防ぐ双曲線正接（`tanh`）ソフトリミッターを搭載。
-- **長文高精度スピーチ生成 (Clause-Aware Chunking & 180文字最適チャンク分割)**:
-  - 長文の入力時でもニューラルアテンションの乱れや文末の誤読・言葉飛ばしが発生しないよう、句読点（`.`, `!`, `?`, `;`）および節の区切り（`,`）で自動的に 180 文字前後の最適呼吸グループにスマート分割。
-  - 20ms の自動クロスフェード結合 (`CrossfadeJoinChunks`) により、長文でも100%正確で自然な連続発音を実現。
-- **WSOLA アルゴリズムによる高音質話速調整**:
-  - タイムドメイン WSOLA により、0.5倍〜2.0倍のどのような話速設定でも音質劣化やピッチズレのない自然な再生を実現。
-- **Whisper STT による自動文字起こし・精度検証ログ機能 (完全非同期化)**:
-  - 「Output Whisper STT verification log (.debug.txt)」にチェックを入れることで、生成された WAV 音声を内蔵 Whisper.net で自動文字起こし照合。
-  - 一括 WAV 保存（`Save WAV`）時も非同期バックグラウンド処理（`Task.Run`）により、画面を一切フリーズ・停止させることなく超高速でバッチ生成を完了。
+- **Whisper STT による自動文字起こし・一括統合検証ログ機能 (.debug.txt)**:
+  - 「Output Whisper STT verification log (.debug.txt) / 文字起こし検証ログ出力」にチェックを入れることで、生成された WAV 音声を内蔵 Whisper.net で自動文字起こし照合。
+  - 複数行の一括保存時も、フォルダ内に 1 つの統合ログファイル（`ベース名.debug.txt`）として全体の単語照合率 (%) および行ごとの詳細を出力。
 
 ---
 
@@ -46,74 +61,70 @@ C-BoxTTS-C の優れた操作性・拡張機能をすべて継承し、英文の
 | :--- | :--- | :--- | :--- |
 | **ベースモデル** | Kokoro-TTS (82M パラメータ) | **Qwen3-TTS (1.7B / 0.6B デュアル)** | パラメータ数が約20倍となり、**文脈に応じた自然なイントネーション・抑揚が飛躍的に向上** |
 | **ターゲット言語** | 多言語汎用 (日英他) | **アメリカ英語 (US Native) 特化** | **アメリカ英語標準アクセント (General American Accent)** に特化し、ネイティブスピーチを実現 |
-| **標準アクセント音声** | 汎用ボイス | **US Native 3種標準同梱** | 女性 (`female`)・男性 (`male`)・ナレーション (`narrator`) の標準WAVプロンプトを同梱 |
+| **標準アクセント音声** | 汎用ボイス | **US Native 3種標準同梱** | ナレーション (`narrator`)・女性 (`female`)・男性 (`male`) の標準WAVプロンプトを同梱 |
 | **Voice Design 機能** | 非対応 | **対応 (自然言語プロンプト指定)** | 「*A clear, professional American female voice*」といったテキスト指定で声質を自由設計 |
 | **長文発音安定性** | 一括生成による文末の崩れ | **180字 Clause-Aware 分割 ＋ 20ms Crossfade** | 長文でもアテンション低下を起こさず、**100%正確な発音で安定再生** |
-| **英文テキスト正規化** | 基本的な数値・日付展開 | **高度英文 Normalizer 搭載** | 短縮形 (`can't`->`cannot`)、単位 (`60mph`, `5kg`, `100GB`, `2.4GHz`, `100°F`, `50%`)、通貨、分数、序数の完全自動展開 |
+| **英文テキスト正規化** | 基本的な数値・日付展開 | **高度英文 Normalizer 搭載** | 見出し、技術単位 (`kHz`, `Mbps`, `μm`, `°C`等)、短縮形、通貨、分数、序数の完全自動展開 |
 | **大文字単語保護** | 一括スペルアウト | **`CommonEnglishWords` 保護機能** | タイトル等の大文字 (`THE`, `AND`, `YOU` 等) を単語として保持し誤展開を防止 |
-| **音質 DSP 処理** | 音量正規化のみ | **アナウンス EQ ＋ Soft Limiter** | 200Hz（厚み）/5000Hz（明瞭度）ブーストEQ ＋ `tanh` リミッターによる**音割れ完全防止** |
+| **音質 DSP 処理** | 音量正規化のみ | **40Hz HPF ＋ 4バンド放送用 EQ ＋ True Peak Limiter** | 落ち着きのある低音とクリアな子音を両立し、**音割れ完全防止** |
 | **話速制御 (WSOLA)** | 基本 WSOLA | **安全ガード付き WSOLA ＋ 20ms Crossfade** | 二重声・エコーを防止し、`speed` パラメータ保護（0.25〜4.0x）でメモリ溢れを防御 |
-| **STT 精度検証** | 基礎文字起こし | **Whisper.net 非同期自動照合 & .debug.txt** | 画面停止のない完全非同期で Whisper STT 照合を行い、単語一致率・欠損単語ログを出力 |
-| **GPU 推論最適化** | DirectML / CPU | **CUDA (RTX 5080 完全最適化)** | NVIDIA RTX 5080 (16GB VRAM) に最適化された CUDA 超高速推論 |
+| **STT 精度検証** | 基礎文字起こし | **Whisper.net 非同期自動照合 & 統合 .debug.txt** | 画面停止のない完全非同期で Whisper STT 照合を行い、単一の統合ログファイルを出力 |
+| **GPU 推論最適化** | DirectML / CPU | **CUDA Tensor Core TF32 (RTX 5080 最適化)** | NVIDIA RTX 5080 (16GB VRAM) に最適化された CUDA 超高速推論 ＋ ウォームアップ |
 
 ---
 
-## 🚀 使い方
+## 🚀 使い方 (Usage)
 
-### GUI（ウィンドウ起動）
+### 1. GUI（ウィンドウ起動）
 `Q3TTS.Native.exe` をダブルクリックして起動します。
-美麗なダークモードUIで、テキスト入力、パラメータ（話速、誇張度、安定性、CFGウェイト、反復ペナルティ）の調整、リアルタイム再生および WAV ファイルへの書き出しを行えます。
+美麗なダークモードUIで、テキスト入力、パラメータ（話速、抑揚、安定性、CFG、反復ペナルティ）の調整、リアルタイム再生および WAV ファイルへの書き出しを行えます。
 
-### テキストファイルのドラッグ＆ドロップ
+### 2. テキストファイルのドラッグ＆ドロップ
 `.txt`, `.md`, `.log`, `.csv` などのテキストファイルをメイン入力欄にドラッグ＆ドロップするだけで、ファイル内容を瞬時に読み込みます。
 
-### 🎙️ Whisper STT 自動文字起こし・精度検証ログ機能
-画面左下の「**Output Whisper STT verification log (.debug.txt)**」にチェックを入れて音声保存すると、音声出力と同時に Whisper.net による自動文字起こし照合ログが生成されます。
+### 3. 数値のキーボード直接入力
+右側の各数値欄（`0.95`, `0.10`, `0.40` 等）をクリックしてキーボードから直接数字を入力すると、左側のスライダーがリアルタイムに連動します。Enter キーで確定できます。
+
+### 4. 🎙️ Whisper STT 自動文字起こし・精度検証ログ機能
+画面左下の「**Output Whisper STT verification log (.debug.txt) / 文字起こし検証ログ出力**」にチェックを入れて WAV 保存すると、音声出力完了時に 1 つの統合ログファイル（`ベース名.debug.txt`）が自動生成されます。
 
 **`.debug.txt` の出力フォーマット例:**
 ```text
 =================================================
-          Q3-TTS STT Verification Report          
+       Q3-TTS Batch STT Verification Report      
 =================================================
-Timestamp          : 2026-07-30 19:00:13
-WAV File           : output.wav
-Audio Duration     : 6.66 seconds
-Accuracy Score     : 98.50%
--------------------------------------------------
-[Original Input]
-The quick brown fox jumps over the lazy dog.
-
-[Normalized Text]
-The quick brown fox jumps over the lazy dog.
-
-[Whisper Transcribed]
-The quick brown fox jumps over the lazy dog.
--------------------------------------------------
-Original Word Count   : 9
-Transcribed Word Count: 9
-Missing Words (0): (None)
-Extra Words (0): (None)
+Timestamp          : 2026-08-17 10:00:00
+Batch Log File     : page01.debug.txt
+Total Lines        : 12
+Total Audio Time   : 92.45 seconds
+Average Accuracy   : 99.20%
 =================================================
+
+-------------------------------------------------
+[Line 1] output_01.wav (8.12s) - Accuracy: 100.00%
+Original   : In this section, we will first explain the AI processing items.
+Transcribed: In this section, we will first explain the AI processing items.
+Missing    : (None)
+Extra      : (None)
+-------------------------------------------------
 ```
 
-### 英語専門用語辞書 (`user_dict_en.txt`) のカスタマイズ・最適な記述方法
+### 5. 英語専門用語辞書 (`user_dict_en.txt`) のカスタマイズ
 `user_dict_en.txt` をメモ帳などで編集することで、固有名詞や専門用語の発音を音素レベルで指定できます。
-※略語の発音指定時は、モデルがポーズ（一休み）を挟まないよう **ピリオドを含まない小文字/スペース表記（例: `ay eye`）** で記述するのがポイントです。
 
-**記述例:**
 ```text
 # 一般的な技術用語（ピリオド無しの平易な表記）
-AI,ay eye
+AI,A I
 Anormaly,anomaly
 DeVIEW,dee view
 NVIDIA,en vid e uh
-OpenAI,open ay eye
+OpenAI,open A I
 
 # 独自の固有名詞
 MyBrand,my brand
 ```
 
-### CLI（コマンドライン起動・テストハーネス）
+### 6. CLI（コマンドライン起動・テストハーネス）
 ```powershell
 # 基本動作確認テスト実行
 .\Q3TTS.Native.exe --test
@@ -135,18 +146,18 @@ MyBrand,my brand
 
 ---
 
-## 📁 パッケージ構成
+## 📁 パッケージ構成 (Directory Structure)
 
 ```
 Release_Portable_Q3TTS_CUDA/
-├── Q3TTS.Native.exe                 # メイン実行ファイル（新デザインアイコン適用）
+├── Q3TTS.Native.exe                 # メイン実行ファイル（新デザイン 3D アイコン適用）
 ├── qwen3_server.py                  # CUDA Neural 音声合成バックエンドサーバー
 ├── user_dict_en.txt                 # 英語ユーザー辞書
 ├── sample_sentences_en.txt          # サンプル英文
 ├── download_models.ps1 / .py        # モデル自動ダウンロードスクリプト
 └── assets/                          # US Native 参照音声 & アプリアイコン
     ├── icon.png / icon.ico          # 新型 3D ネオンサウンドウェーブアイコン
-    ├── default_voice_us_female.wav
-    ├── default_voice_us_male.wav
-    └── default_voice_us_narrator.wav
+    ├── default_voice_us_female.wav  # 女性 US ネイティブ
+    ├── default_voice_us_male.wav    # 男性 US ネイティブ
+    └── default_voice_us_narrator.wav # ナレーション US ネイティブ（デフォルト）
 ```
