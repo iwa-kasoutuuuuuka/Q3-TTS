@@ -86,7 +86,7 @@ namespace Q3TTS.Native
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = "uv",
-                        Arguments = $"run --no-project --with qwen-tts,torch,soundfile,fastapi,uvicorn,pydantic python \"{scriptPath}\" --port 8080 --size {sizeArg}",
+                        Arguments = $"run --no-project --extra-index-url https://download.pytorch.org/whl/cu124 --with qwen-tts,torch,soundfile,fastapi,uvicorn,pydantic python \"{scriptPath}\" --port 8080 --size {sizeArg}",
                         WorkingDirectory = Path.GetDirectoryName(scriptPath),
                         UseShellExecute = false,
                         CreateNoWindow = true,
